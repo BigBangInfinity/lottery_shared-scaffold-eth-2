@@ -1,14 +1,14 @@
 // import { useEffect, useState } from "react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import LotteryABI from "../abis/Lottery.json";
+import LotteryTokenABI from "../abis/LotteryToken.json";
 import { ethers } from "ethers";
 import type { NextPage } from "next";
 import { useAccount, useBalance, useContractRead, useContractWrite, useNetwork } from "wagmi";
 
 const TOKEN_ADDRESS = process.env.NEXT_PUBLIC_TOKEN_ADDRESS;
-// const RPC_ENDPOINT_URL = process.env.NEXT_PUBLIC_RPC_ENDPOINT_URL;
+const RPC_ENDPOINT_URL = process.env.NEXT_PUBLIC_RPC_ENDPOINT_URL;
 const LOTTERY_ADDRESS = process.env.NEXT_PUBLIC_LOTTERY_ADDRESS;
-// const BET_PRICE = 1;
-// const BET_FEE = 0.2;
 const TOKEN_RATIO = 1000n;
 
 const Home: NextPage = () => {
@@ -52,14 +52,14 @@ function WalletInfo() {
         <p>Connected to the network {chain?.name}</p>
         <WalletBalance address={address as `0x${string}`}></WalletBalance>
         <TokenInfo address={address as `0x${string}`}></TokenInfo>
-        {/* <CheckStateBox></CheckStateBox> */}
-        {/* <OpenBetsBox></OpenBetsBox> */}
+        <CheckStateBox></CheckStateBox>
+        <OpenBetsBox></OpenBetsBox>
         <TopUpBox></TopUpBox>
         <BurnBox></BurnBox>
         <CloseLotteryBox></CloseLotteryBox>
         <ApproveBox></ApproveBox>
         <BetBox></BetBox>
-        {/* <PrizeBox address={address as `0x${string}`}></PrizeBox> */}
+        <PrizeBox address={address as `0x${string}`}></PrizeBox>
         <OwnerPrizeBox></OwnerPrizeBox>
       </div>
     );
@@ -115,22 +115,7 @@ function TokenInfo(params: { address: `0x${string}` }) {
 function TokenName() {
   const { data, isError, isLoading } = useContractRead({
     address: TOKEN_ADDRESS,
-    abi: [
-      {
-        constant: true,
-        inputs: [],
-        name: "name",
-        outputs: [
-          {
-            name: "",
-            type: "string",
-          },
-        ],
-        payable: false,
-        stateMutability: "view",
-        type: "function",
-      },
-    ],
+    abi: LotteryTokenABI,
     functionName: "name",
   });
 
@@ -144,21 +129,7 @@ function TokenName() {
 function TokenTotalSupply() {
   const { data, isError, isLoading } = useContractRead({
     address: TOKEN_ADDRESS,
-    abi: [
-      {
-        inputs: [],
-        name: "totalSupply",
-        outputs: [
-          {
-            internalType: "uint256",
-            name: "",
-            type: "uint256",
-          },
-        ],
-        stateMutability: "view",
-        type: "function",
-      },
-    ],
+    abi: LotteryTokenABI,
     functionName: "totalSupply",
   });
 
@@ -172,28 +143,7 @@ function TokenTotalSupply() {
 function TokenBalance(params: { address: `0x${string}` }) {
   const { data, isError, isLoading } = useContractRead({
     address: TOKEN_ADDRESS,
-    abi: [
-      {
-        constant: true,
-        inputs: [
-          {
-            internalType: "address",
-            name: "account",
-            type: "address",
-          },
-        ],
-        name: "balanceOf",
-        outputs: [
-          {
-            internalType: "uint256",
-            name: "",
-            type: "uint256",
-          },
-        ],
-        stateMutability: "view",
-        type: "function",
-      },
-    ],
+    abi: LotteryTokenABI,
     functionName: "balanceOf",
     args: [params.address],
   });
@@ -205,165 +155,150 @@ function TokenBalance(params: { address: `0x${string}` }) {
   return <div>Token Balance: {ethers.formatUnits(balance).toString()}</div>;
 }
 
-// function CheckStateBox() {
-//   return (
-//     <div className="card w-96 bg-primary text-primary-content mt-4">
-//       <div className="card-body">
-//         <h2 className="card-title">Check state:</h2>
-//         <CheckState></CheckState>
-//       </div>
-//     </div>
-//   );
-// }
+function CheckStateBox() {
+  return (
+    <div className="card w-96 bg-primary text-primary-content mt-4">
+      <div className="card-body">
+        <h2 className="card-title">Check state:</h2>
+        <CheckState></CheckState>
+      </div>
+    </div>
+  );
+}
 
-// function CheckState() {
+function CheckState() {
+  const { data, isError, isLoading } = useContractRead({
+    address: LOTTERY_ADDRESS,
+    abi: LotteryABI,
+    functionName: "betsOpen",
+  });
 
-//   const { data, isError, isLoading } = useContractRead({
-//     address: LOTTERY_ADDRESS,
-//     abi: [
-//       {
-//         "inputs": [],
-//         "name": "betsOpen",
-//         "outputs": [
-//           {
-//             "internalType": "bool",
-//             "name": "",
-//             "type": "bool"
-//           }
-//         ],
-//         "stateMutability": "view",
-//         "type": "function"
-//       },
-//     ],
-//     functionName: "betsOpen"
-//   });
+  const [timestamp, setBlockTimestamp] = useState<number>(0);
+  useEffect(() => {
+    const fetchBlockTimestamp = async () => {
+      // Create an ethers provider
+      const provider = new ethers.JsonRpcProvider(RPC_ENDPOINT_URL);
 
-//   if (isLoading) return <div>Fetching ...</div>;
-//   if (isError) return <div>Error fetching </div>;
-//   const state = data;
+      try {
+        // Fetch the latest block
+        const latestBlock = await provider.getBlock("latest");
 
-//   if (!state) return <div>The lottery is {state ? "open" : "closed"}</div>;
+        // Check if the latestBlock is not null
+        if (latestBlock) {
+          // Update the blockTimestamp state with the block's timestamp
+          setBlockTimestamp(latestBlock.timestamp);
+        } else {
+          console.error("Could not fetch the latest block");
+        }
+      } catch (error) {
+        console.error("Error fetching the latest block:", error);
+      }
+    };
 
-//   const [currentBlock, setLatestBlock] = useState(null);
-//   useEffect(() => {
-//     async function fetchLatestBlock() {
-//       try {
-//         const provider =  new ethers.JsonRpcProvider(RPC_ENDPOINT_URL);
-//         const block = await provider.getBlock('latest');
-//         setLatestBlock(block);
-//       } catch (error) {
-//         console.error('Error fetching the latest block:', error);
-//       }
-//     }
+    fetchBlockTimestamp();
+  }, []);
 
-//     fetchLatestBlock();
-//   }, []);
+  const {
+    data: data2,
+    isError: isError2,
+    isLoading: isLoading2,
+  } = useContractRead({
+    address: LOTTERY_ADDRESS,
+    abi: LotteryABI,
+    functionName: "betsClosingTime",
+  });
 
-//   const timestamp = currentBlock?.timestamp ?? 0;
-//   const currentBlockDate = new Date(timestamp * 1000);
+  if (isLoading) return <div>Fetching ...</div>;
+  if (isError) return <div>Error fetching </div>;
+  const state = data;
 
-//     const { data: data2, isError: isError2, isLoading: isLoading2 } = useContractRead({
-//     address: LOTTERY_ADDRESS,
-//     abi: [
-//       {
-//         "inputs": [],
-//         "name": "betsClosingTime",
-//         "outputs": [
-//           {
-//             "internalType": "uint256",
-//             "name": "",
-//             "type": "uint256"
-//           }
-//         ],
-//         "stateMutability": "view",
-//         "type": "function"
-//       },
-//     ],
-//     functionName: "betsClosingTime"
-//   });
-//   if (isLoading2) return <div>Fetching ...</div>;
-//   if (isError2) return <div>Error fetching </div>;
+  if (!state) return <div>The lottery is {state ? "open" : "closed"}</div>;
 
-//   const closingTime = data2 as BigInt;
-//   const closingTimeDate = new Date(Number(closingTime) * 1000);
-//   return (<div>The lottery is {state ? "open" : "closed"}
-//   <p>The last block was mined at {currentBlockDate.toLocaleDateString()} : {currentBlockDate.toLocaleTimeString()}</p>
-//     <p>lottery should close at {closingTimeDate.toLocaleDateString()} : {closingTimeDate.toLocaleTimeString()}</p>;
-//   </div>);
-// }
+  const currentBlockDate = new Date(timestamp * 1000);
 
-// function OpenBetsBox() {
-//   return (
-//         <OpenBets></OpenBets>
-//   );
-// }
+  if (isLoading2) return <div>Fetching ...</div>;
+  if (isError2) return <div>Error fetching </div>;
 
-// function OpenBets() {
+  const closingTime = data2 as bigint;
+  const closingTimeDate = new Date(Number(closingTime) * 1000);
+  return (
+    <div>
+      The lottery is {state ? "open" : "closed"}
+      <p>
+        The last block was mined at {currentBlockDate.toLocaleDateString()} : {currentBlockDate.toLocaleTimeString()}
+      </p>
+      <p>
+        lottery should close at {closingTimeDate.toLocaleDateString()} : {closingTimeDate.toLocaleTimeString()}
+      </p>
+    </div>
+  );
+}
 
-//   const [currentBlock, setLatestBlock] = useState(null);
-//   useEffect(() => {
-//     async function fetchLatestBlock() {
-//       try {
-//         const provider =  new ethers.JsonRpcProvider(RPC_ENDPOINT_URL);
-//         const block = await provider.getBlock('latest');
-//         setLatestBlock(block);
-//       } catch (error) {
-//         console.error('Error fetching the latest block:', error);
-//       }
-//     }
+function OpenBetsBox() {
+  return <OpenBets></OpenBets>;
+}
 
-//     fetchLatestBlock();
-//   }, []);
+function OpenBets() {
+  const [timestamp, setBlockTimestamp] = useState<number>(0);
+  useEffect(() => {
+    const fetchBlockTimestamp = async () => {
+      // Create an ethers provider
+      const provider = new ethers.JsonRpcProvider(RPC_ENDPOINT_URL);
 
-//   const timestamp = currentBlock?.timestamp ?? 0;
+      try {
+        // Fetch the latest block
+        const latestBlock = await provider.getBlock("latest");
 
-//   const [duration, setDuration] = useState<number>(0);
-//   const { data, isLoading, isSuccess, write } = useContractWrite({
-//     address: LOTTERY_ADDRESS,
-//     abi: [
-//       {
-//         "inputs": [
-//           {
-//             "internalType": "uint256",
-//             "name": "closingTime",
-//             "type": "uint256"
-//           }
-//         ],
-//         "name": "openBets",
-//         "outputs": [],
-//         "stateMutability": "nonpayable",
-//         "type": "function"
-//       },
-//     ],
-//     functionName: 'openBets',
-//   })
-//   return (
-//     <div className="card w-96 bg-primary text-primary-content mt-4">
-//       <div className="card-body">
-//         <h2 className="card-title">Open bets</h2>
-//         <div className="form-control w-full max-w-xs my-4">
-//         <label>
-//         Enter duration (in seconds):
-//         <input
-//           type="text"
-//           placeholder="Type here"
-//           className="input input-bordered w-full max-w-xs"
-//           value={duration}
-//           onChange={(e) => setDuration(Number(e.target.value))}
-//         />
-//       </label>
-//         </div>
-//         <button
-//           className="btn btn-active btn-neutral"
-//           disabled={isLoading}
-//           onClick={() => write({ args: [timestamp + duration] })}>Open bets
-//         </button>
-//         {isLoading && <div>Check Wallet</div>}
-//       {isSuccess && <div>Transaction: {JSON.stringify(data)}</div>}
-//       </div>
-//     </div>
-//   );
-// }
+        // Check if the latestBlock is not null
+        if (latestBlock) {
+          // Update the blockTimestamp state with the block's timestamp
+          setBlockTimestamp(latestBlock.timestamp);
+        } else {
+          console.error("Could not fetch the latest block");
+        }
+      } catch (error) {
+        console.error("Error fetching the latest block:", error);
+      }
+    };
+
+    fetchBlockTimestamp();
+  }, []);
+
+  const [duration, setDuration] = useState<number>(0);
+  const { data, isLoading, isSuccess, write } = useContractWrite({
+    address: LOTTERY_ADDRESS,
+    abi: LotteryABI,
+    functionName: "openBets",
+  });
+  return (
+    <div className="card w-96 bg-primary text-primary-content mt-4">
+      <div className="card-body">
+        <h2 className="card-title">Open bets</h2>
+        <div className="form-control w-full max-w-xs my-4">
+          <label>
+            Enter duration (in seconds):
+            <input
+              type="text"
+              placeholder="Type here"
+              className="input input-bordered w-full max-w-xs"
+              value={duration}
+              onChange={e => setDuration(Number(e.target.value))}
+            />
+          </label>
+        </div>
+        <button
+          className="btn btn-active btn-neutral"
+          disabled={isLoading}
+          onClick={() => write({ args: [timestamp + duration] })}
+        >
+          Open bets
+        </button>
+        {isLoading && <div>Check Wallet</div>}
+        {isSuccess && <div>Transaction: {JSON.stringify(data)}</div>}
+      </div>
+    </div>
+  );
+}
 
 function TopUpBox() {
   return <TopUp></TopUp>;
@@ -373,15 +308,7 @@ function TopUp() {
   const [amount, setAmount] = useState<number>(0);
   const { data, isLoading, isSuccess, write } = useContractWrite({
     address: LOTTERY_ADDRESS,
-    abi: [
-      {
-        inputs: [],
-        name: "purchaseTokens",
-        outputs: [],
-        stateMutability: "payable",
-        type: "function",
-      },
-    ],
+    abi: LotteryABI,
     functionName: "purchaseTokens",
   });
   return (
@@ -421,15 +348,7 @@ function CloseLotteryBox() {
 function CloseLottery() {
   const { data, isLoading, isSuccess, write } = useContractWrite({
     address: LOTTERY_ADDRESS,
-    abi: [
-      {
-        inputs: [],
-        name: "closeLottery",
-        outputs: [],
-        stateMutability: "nonpayable",
-        type: "function",
-      },
-    ],
+    abi: LotteryABI,
     functionName: "closeLottery",
   });
   return (
@@ -454,32 +373,7 @@ function ApproveBox() {
 function Approve() {
   const { data, isLoading, isSuccess, write } = useContractWrite({
     address: TOKEN_ADDRESS,
-    abi: [
-      {
-        inputs: [
-          {
-            internalType: "address",
-            name: "spender",
-            type: "address",
-          },
-          {
-            internalType: "uint256",
-            name: "amount",
-            type: "uint256",
-          },
-        ],
-        name: "approve",
-        outputs: [
-          {
-            internalType: "bool",
-            name: "",
-            type: "bool",
-          },
-        ],
-        stateMutability: "nonpayable",
-        type: "function",
-      },
-    ],
+    abi: LotteryTokenABI,
     functionName: "approve",
   });
   return (
@@ -511,21 +405,7 @@ function Bet() {
   const [amount, setAmount] = useState<number>(0);
   const { data, isLoading, isSuccess, write } = useContractWrite({
     address: LOTTERY_ADDRESS,
-    abi: [
-      {
-        inputs: [
-          {
-            internalType: "uint256",
-            name: "times",
-            type: "uint256",
-          },
-        ],
-        name: "betMany",
-        outputs: [],
-        stateMutability: "nonpayable",
-        type: "function",
-      },
-    ],
+    abi: LotteryABI,
     functionName: "betMany",
   });
   return (
@@ -554,99 +434,62 @@ function Bet() {
   );
 }
 
-// function PrizeBox(params: { address: `0x${string}` }) {
-//   return (
-//         <Prize address={params.address}></Prize>
-//   );
-// }
+function PrizeBox(params: { address: `0x${string}` }) {
+  return <Prize address={params.address}></Prize>;
+}
 
-// function Prize(params: { address: `0x${string}` }) {
-//   const { data: data1, isError: isError1, isLoading: isLoading1 } = useContractRead({
-//     address: LOTTERY_ADDRESS,
-//     abi: [  {
-//     "inputs": [],
-//     "name": "prizePool",
-//     "outputs": [
-//       {
-//         "internalType": "uint256",
-//         "name": "",
-//         "type": "uint256"
-//       }
-//     ],
-//     "stateMutability": "view",
-//     "type": "function"
-//   }],
-//   functionName: "prizePool"
-// })
+function Prize(params: { address: `0x${string}` }) {
+  const {
+    data: data1,
+    isError: isError1,
+    isLoading: isLoading1,
+  } = useContractRead({
+    address: LOTTERY_ADDRESS,
+    abi: LotteryABI,
+    functionName: "prizePool",
+  });
 
-// const prizePool = data1 as BigInt;
+  const { data, isError, isLoading } = useContractRead({
+    address: LOTTERY_ADDRESS,
+    abi: LotteryABI,
+    functionName: "prize",
+    args: [params.address],
+  });
 
-//   const { data, isError, isLoading } = useContractRead({
-//     address: LOTTERY_ADDRESS,
-//     abi: [
-//       {
-//         "inputs": [
-//           {
-//             "internalType": "address",
-//             "name": "",
-//             "type": "address"
-//           }
-//         ],
-//         "name": "prize",
-//         "outputs": [
-//           {
-//             "internalType": "uint256",
-//             "name": "",
-//             "type": "uint256"
-//           }
-//         ],
-//         "stateMutability": "view",
-//         "type": "function"
-//       },
-//     ],
-//     functionName: "prize",
-//     args: [params.address]
-//   });
+  const {
+    data: data2,
+    isLoading: isLoading2,
+    isSuccess: isSuccess2,
+    write,
+  } = useContractWrite({
+    address: LOTTERY_ADDRESS,
+    abi: LotteryABI,
+    functionName: "prizeWithdraw",
+  });
 
-//   const prize = data as BigInt;
+  if (isLoading1) return <div>Fetching ...</div>;
+  if (isError1) return <div>Error fetching </div>;
 
-//   const { data: data2, isLoading: isLoading2, isSuccess: isSuccess2, write } = useContractWrite({
-//     address: LOTTERY_ADDRESS,
-//     abi: [
-//       {
-//         "inputs": [
-//           {
-//             "internalType": "uint256",
-//             "name": "amount",
-//             "type": "uint256"
-//           }
-//         ],
-//         "name": "prizeWithdraw",
-//         "outputs": [],
-//         "stateMutability": "nonpayable",
-//         "type": "function"
-//       },
-//     ],
-//     functionName: 'prizeWithdraw',
-//   })
+  const prizePool = data1 as bigint;
+  const prize = data as bigint;
 
-//   if (isLoading) return <div>Fetching name…</div>;
-//   if (isError) return <div>Error fetching name</div>;
-//   return     <div className="card w-96 bg-primary text-primary-content mt-4">
-//   <div className="card-body">
-//     <h2 className="card-title">Prize pool:</h2>
-//     <div>Total prize pool: {(ethers.formatUnits(prizePool)).toString()}</div>
-//   <div>Your prize: {(ethers.formatUnits(prize)).toString()}</div>
-//         <button
-//           className="btn btn-active btn-neutral"
-//           disabled={isLoading2}
-//           onClick={() => write({ args: [prize] })}>Claim Prize
-//         </button>
-//         {isLoading2 && <div>Check Wallet</div>}
-//       {isSuccess2 && <div>Transaction: {JSON.stringify(data2)}</div>}
-//       </div>
-//   </div>;
-// }
+  if (isLoading) return <div>Fetching name…</div>;
+  if (isError) return <div>Error fetching name</div>;
+  return (
+    <div className="card w-96 bg-primary text-primary-content mt-4">
+      <div className="card-body">
+        <h2 className="card-title">Prize pool:</h2>
+        <div>Total prize pool: {ethers.formatUnits(prizePool.toString()).toString()}</div>
+        <div>Your prize: {ethers.formatUnits(prize.toString()).toString()}</div>
+        <button className="btn btn-active btn-neutral" disabled={isLoading2} onClick={() => write({ args: [prize] })}>
+          Claim Prize
+        </button>
+        {isLoading2 && <div>Check Wallet</div>}
+        {isSuccess2 && <div>Transaction: {JSON.stringify(data2)}</div>}
+      </div>
+    </div>
+  );
+}
 
 function OwnerPrizeBox() {
   return <OwnerPrize></OwnerPrize>;
@@ -655,21 +498,7 @@ function OwnerPrizeBox() {
 function OwnerPrize() {
   const { data, isError, isLoading } = useContractRead({
     address: LOTTERY_ADDRESS,
-    abi: [
-      {
-        inputs: [],
-        name: "ownerPool",
-        outputs: [
-          {
-            internalType: "uint256",
-            name: "",
-            type: "uint256",
-          },
-        ],
-        stateMutability: "view",
-        type: "function",
-      },
-    ],
+    abi: LotteryABI,
     functionName: "ownerPool",
   });
 
@@ -682,21 +511,7 @@ function OwnerPrize() {
     write,
   } = useContractWrite({
     address: LOTTERY_ADDRESS,
-    abi: [
-      {
-        inputs: [
-          {
-            internalType: "uint256",
-            name: "amount",
-            type: "uint256",
-          },
-        ],
-        name: "ownerWithdraw",
-        outputs: [],
-        stateMutability: "nonpayable",
-        type: "function",
-      },
-    ],
+    abi: LotteryABI,
     functionName: "ownerWithdraw",
   });
 
@@ -729,21 +544,7 @@ function Burn() {
   const [amount, setAmount] = useState<number>(0);
   const { data, isLoading, isSuccess, write } = useContractWrite({
     address: LOTTERY_ADDRESS,
-    abi: [
-      {
-        inputs: [
-          {
-            internalType: "uint256",
-            name: "amount",
-            type: "uint256",
-          },
-        ],
-        name: "returnTokens",
-        outputs: [],
-        stateMutability: "nonpayable",
-        type: "function",
-      },
-    ],
+    abi: LotteryABI,
     functionName: "returnTokens",
   });
   return (
